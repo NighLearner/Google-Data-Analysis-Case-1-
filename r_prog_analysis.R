@@ -141,11 +141,14 @@ ridership_analysis <- df_v2 %>%
     .groups = 'drop'
   )
 
+head(ridership_analysis)
+
+
 ridership_analysis$day_of_week <- factor(ridership_analysis$day_of_week, levels = day_order)
 ridership_analysis <- ridership_analysis %>%
   arrange(member_casual, day_of_week)
 print(ridership_analysis)
-write.csv(ridership_analysis, "aggregated_ride_length.csv", row.names = FALSE)
+write.csv(ridership_analysis, "agg_count__ride_length.csv", row.names = FALSE)
 
 ggplot(ridership_analysis, aes(x = day_of_week, y = total_rides, fill = member_casual)) +
   geom_bar(stat = "identity", position = "dodge") +
@@ -159,6 +162,170 @@ ggplot(ridership_analysis, aes(x = day_of_week, y = average_ride_length, color =
   labs(title = "Average Ride Length by Rider Type and Day of the Week",
        x = "Day of the Week", y = "Average Ride Length (seconds)") +
   theme_minimal()
+
+
+# Create a new dataframe that groups by month and member_casual, then counts the number of rides
+monthly_riders_df <- df_v2 %>%
+  group_by(month, member_casual) %>%
+  summarise(
+    number_of_riders = n(),  # Count the number of rides
+    .groups = 'drop'
+  )
+
+head(monthly_riders_df)
+
+write.csv(ridership_analysis, "monthly_rides.csv", row.names = FALSE)
+
+# Ensure month is numeric
+monthly_riders_df$month <- as.numeric(monthly_riders_df$month)
+
+str(monthly_riders_df)
+
+# Plot the chart
+ggplot(monthly_riders_df, aes(x = month, y = number_of_riders, color = member_casual, group = member_casual)) +
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  labs(title = "Number of Riders by Month and Rider Type",
+       x = "Month", y = "Number of Riders",
+       color = "Rider Type") +
+  theme_minimal() +
+  scale_x_continuous(breaks = 1:12, labels = month.name)
+
+
+# Count the number of rides per start station
+station_rider_counts <- df_v2 %>%
+  group_by(start_station_name) %>%
+  summarise(rider_count = n(), .groups = 'drop')
+
+# Get the top 5 and bottom 5 stations based on rider count
+top_5_stations <- station_rider_counts %>% 
+  arrange(desc(rider_count)) %>% 
+  slice(1:10)
+
+bottom_5_stations <- station_rider_counts %>%
+  arrange(rider_count) %>%
+  slice(1:10)
+
+# Bar plot for top 10 stations
+ggplot(top_5_stations, aes(x = reorder(start_station_name, -rider_count), y = rider_count, fill = start_station_name)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +  # Flip coordinates for easier reading
+  labs(title = "Top 5 Start Stations by Rider Count",
+       x = "Start Station Name", y = "Rider Count") +
+  theme_minimal() +
+  theme(legend.position = "none")  # Remove legend
+
+# Bar plot for bottom 10 stations
+ggplot(bottom_5_stations, aes(x = reorder(start_station_name, rider_count), y = rider_count, fill = start_station_name)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +  # Flip coordinates for easier reading
+  labs(title = "Bottom 5 Start Stations by Rider Count",
+       x = "Start Station Name", y = "Rider Count") +
+  theme_minimal() +
+  theme(legend.position = "none")  # Remove legend
+
+
+#Ride duration analysis
+# Calculate average ride length by rider type
+ride_duration_analysis <- df_v2 %>%
+  group_by(member_casual) %>%
+  summarise(
+    avg_ride_length = mean(ride_length, na.rm = TRUE),
+    median_ride_length = median(ride_length, na.rm = TRUE),
+    .groups = 'drop'
+  )
+
+print(ride_duration_analysis)
+
+ggplot(df_v2, aes(x = member_casual, y = ride_length, fill = member_casual)) +
+  geom_boxplot() +
+  labs(title = "Ride Length Distribution by Rider Type",
+       x = "Rider Type", y = "Ride Length (seconds)") +
+  theme_minimal()
+
+#Hourly ride pattern
+# Extract hour from the started_at column
+df_v2 <- df_v2 %>%
+  mutate(hour = format(started_at, "%H"))
+
+# Calculate number of rides by hour and member_casual
+hourly_rides <- df_v2 %>%
+  group_by(hour, member_casual) %>%
+  summarise(rides = n(), .groups = 'drop')
+
+# Plot hourly ride patterns
+ggplot(hourly_rides, aes(x = hour, y = rides, color = member_casual, group = member_casual)) +
+  geom_line(size = 1) +
+  labs(title = "Hourly Ride Patterns by Rider Type",
+       x = "Hour of Day", y = "Number of Rides") +
+  theme_minimal()
+
+# weekend and weekday usage
+
+# Create a new column indicating whether it's a weekend or weekday
+df_v2 <- df_v2 %>%
+  mutate(day_type = ifelse(day_of_week %in% c("Saturday", "Sunday"), "Weekend", "Weekday"))
+
+# Summarise rides by day type and member_casual
+day_type_analysis <- df_v2 %>%
+  group_by(day_type, member_casual) %>%
+  summarise(total_rides = n(), .groups = 'drop')
+
+print(day_type_analysis)
+
+# Visualize
+ggplot(day_type_analysis, aes(x = day_type, y = total_rides, fill = member_casual)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Rides by Day Type and Rider Type",
+       x = "Day Type", y = "Total Rides") +
+  theme_minimal()
+
+
+ggplot(monthly_riders_df, aes(x = month, y = number_of_riders, color = member_casual, group = member_casual)) +
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  labs(title = "Seasonal Trends: Number of Riders by Month",
+       x = "Month", y = "Number of Riders",
+       color = "Rider Type") +
+  theme_minimal() +
+  scale_x_continuous(breaks = 1:12, labels = month.name)
+
+# Bike type preferences
+# Count number of rides by bike type and member_casual
+bike_type_analysis <- df_v2 %>%
+  group_by(rideable_type, member_casual) %>%
+  summarise(total_rides = n(), .groups = 'drop')
+
+print(bike_type_analysis)
+
+# Visualize
+ggplot(bike_type_analysis, aes(x = rideable_type, y = total_rides, fill = member_casual)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Bike Type Usage by Rider Type",
+       x = "Bike Type", y = "Total Rides") +
+  theme_minimal()
+
+# Saving all inferences
+# Save Ride Duration Analysis
+write.csv(ride_duration_analysis, "ride_duration_analysis.csv", row.names = FALSE)
+
+# Save Hourly Ride Patterns
+write.csv(hourly_rides, "hourly_rides.csv", row.names = FALSE)
+
+# Save Weekend vs. Weekday Usage
+write.csv(day_type_analysis, "day_type_analysis.csv", row.names = FALSE)
+
+# Save Bike Type Preferences
+write.csv(bike_type_analysis, "bike_type_analysis.csv", row.names = FALSE)
+
+# Save Monthly Riders Data
+write.csv(monthly_riders_df, "monthly_riders_df.csv", row.names = FALSE)
+
+# Optional: Save the main dataset
+write.csv(df_v2, "full_dataset.csv", row.names = FALSE)
+
+
+
 
 
 #=================================================
