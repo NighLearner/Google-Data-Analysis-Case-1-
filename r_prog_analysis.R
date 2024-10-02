@@ -1,6 +1,9 @@
 library(tidyverse) #helps wrangle data
 # Use the conflicted package to manage conflicts
 library(conflicted)
+library(dplyr)
+library(ggplot2)
+
 # Set dplyr::filter and dplyr::lag as the default choices
 conflict_prefer("filter", "dplyr")
 conflict_prefer("lag", "dplyr")
@@ -84,7 +87,7 @@ df$ride_length <- as.numeric(as.character(df$ride_length))
 is.numeric(df$ride_length)
 # Remove "bad" data
 # The dataframe includes a few hundred entries when bikes were taken out of docks and
-checked for quality by Divvy or ride_length was negative
+# checked for quality by Divvy or ride_length was negative
 # We will create a new version of the dataframe (v2) since data is being removed
 # https://www.datasciencemadesimple.com/delete-or-drop-rows-in-r-with-conditions-2/
 df_v2 <- df[!(df$start_station_name == "HQ QR" | df$ride_length<0),]
@@ -105,43 +108,59 @@ aggregate(df_v2$ride_length ~ df_v2$member_casual, FUN = median)
 aggregate(df_v2$ride_length ~ df_v2$member_casual, FUN = max)
 aggregate(df_v2$ride_length ~ df_v2$member_casual, FUN = min)
 # See the average ride time by each day for members vs casual users
-aggregate(df_v2$ride_length ~ df_v2$member_casual + df_v2$day_of_week,
+agg_data <-aggregate(df_v2$ride_length ~ df_v2$member_casual + df_v2$day_of_week,
           FUN = mean)
+colnames(agg_data) <- c("member_casual", "week_day", "mean_ride_length")
+
+# Define the correct order of the days (Monday to Sunday)
+day_order <- c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+
+# Convert 'week_day' to a factor with the correct order
+agg_data$week_day <- factor(agg_data$week_day, levels = day_order)
+
+# Order the data by 'week_day'
+agg_data <- agg_data %>%
+  arrange(week_day)
+
+
+write.csv(agg_data, "aggregated_ride_length.csv", row.names = FALSE)
+head(agg_data)
 # Notice that the days of the week are out of order. Let's fix that.
 df_v2$day_of_week <- ordered(df_v2$day_of_week, levels=c("Sunday", "Monday",
                                                                        "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
 # Now, let's run the average ride time by each day for members vs casual users
-aggregate(df_v2$ride_length ~ df_v2$member_casual + df_v2$week_day,
+aggregate(df_v2$ride_length ~ df_v2$member_casual + df_v2$week_of_day,
           FUN = mean)
 # analyze ridership data by type and weekday
-df_v2 %>%
-  mutate(weekday = wday(started_at, label = TRUE)) %>% #creates weekday field using
-  wday()
-group_by(member_casual, weekday) %>% #groups by usertype and weekday
-  summarise(number_of_rides = n() #calculates
-            the number of rides and average duration
-            ,average_duration = mean(ride_length)) %>% # calculates the average
-  duration
-arrange(member_casual, weekday) # sorts
-# Let's visualize the number of rides by rider type
-df_v2 %>%
-  mutate(weekday = wday(started_at, label = TRUE)) %>%
-  group_by(member_casual, weekday) %>%
-  
-  summarise(number_of_rides = n()
-            ,average_duration = mean(ride_length)) %>%
-  arrange(member_casual, weekday) %>%
-  ggplot(aes(x = weekday, y = number_of_rides, fill = member_casual)) +
-  geom_col(position = "dodge")
-# Let's create a visualization for average duration
-df_v2 %>%
-  mutate(weekday = wday(started_at, label = TRUE)) %>%
-  group_by(member_casual, weekday) %>%
-  summarise(number_of_rides = n()
-            ,average_duration = mean(ride_length)) %>%
-  arrange(member_casual, weekday) %>%
-  ggplot(aes(x = weekday, y = average_duration, fill = member_casual)) +
-  geom_col(position = "dodge")
+# Group data by rider type (member_casual) and day of the week (week_day)
+ridership_analysis <- df_v2 %>%
+  group_by(member_casual, day_of_week) %>%
+  summarise(
+    total_rides = n(),  # Total number of rides
+    average_ride_length = mean(ride_length, na.rm = TRUE),  # Average ride length
+    .groups = 'drop'
+  )
+
+ridership_analysis$day_of_week <- factor(ridership_analysis$day_of_week, levels = day_order)
+ridership_analysis <- ridership_analysis %>%
+  arrange(member_casual, day_of_week)
+print(ridership_analysis)
+write.csv(ridership_analysis, "aggregated_ride_length.csv", row.names = FALSE)
+
+ggplot(ridership_analysis, aes(x = day_of_week, y = total_rides, fill = member_casual)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Total Rides by Rider Type and Day of the Week",
+       x = "Day of the Week", y = "Total Rides") +
+  theme_minimal()
+
+ggplot(ridership_analysis, aes(x = day_of_week, y = average_ride_length, color = member_casual, group = member_casual)) +
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  labs(title = "Average Ride Length by Rider Type and Day of the Week",
+       x = "Day of the Week", y = "Average Ride Length (seconds)") +
+  theme_minimal()
+
+
 #=================================================
 # STEP 5: EXPORT SUMMARY FILE FOR FURTHER ANALYSIS
 #=================================================
