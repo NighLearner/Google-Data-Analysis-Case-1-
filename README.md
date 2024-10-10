@@ -1,5 +1,5 @@
 Here's a draft for your README file:
-made changes
+
 ---
 
 # Cyclistic Bike Share Case Study
