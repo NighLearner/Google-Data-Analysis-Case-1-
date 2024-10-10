@@ -1,7 +1,3 @@
-Here's a draft for your README file:
-
----
-
 # Cyclistic Bike Share Case Study
 
 ## Overview
