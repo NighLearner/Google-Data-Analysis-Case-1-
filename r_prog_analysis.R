@@ -29,8 +29,7 @@ summary(df) #Statistical summary of data. Mainly for numeric
 # (2) The data can only be aggregated at the ride-level, which is too granular. We will want to
 #add some additional columns of data -- such as day, month, year -- that provide additional
 #opportunities to aggregate the data.
-
-> # Assuming 'started_at' is in character format
+# Assuming 'started_at' is in character format
 df$started_at <- ymd_hms(df$started_at)# Separate year, month, day, and time and add them to df
 df$year <- year(df$started_at)
 df$month <- month(df$started_at)
